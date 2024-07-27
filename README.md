@@ -1,12 +1,8 @@
 ## BACT
 
-Current BINRES R package: version 1.2 
+Current BACT R package: version 1.0 
 
-The R package BINRES is built to implement the nonparametric Bayesian method named BINRES to carry out the region segmentation for a tissue section by integrating all the three types of data generated during the study --- gene expressions, spatial coordinates, and the histology image. BINRES captures the spatial dependence of neighboring spots and does not require a prespecified region number. It also combines the image and the gene expressions whose contribution weights can be flexibly adjusted in a data-adaptive manner. The computationally scalable extension BINRES-fast is developed for large-scale studies. In this package, a partially collapsed Gibbs sampler is carefully designed for Bayesian posterior inference. BINRES can be installed in Windows, Linux, and Mac OS.
-
-For technical details, please refer to our paper currently accepted in *Journal of the American Statistical Association*: Yinqiao Yan and Xiangyu Luo* (2024), "Bayesian integrative region segmentation in spatially resolved transcriptomic studies".
-
-**Note:** The BINRES R package for reproducibility in the paper is version 1.1.
+The R package BACT is built to implement the nonparametric Bayesian method named BACT to perform BAyesian Cell Typing by utilizing gene expression information and spatial coordinates of cells. BACT incorporates a nonparametric Potts prior to induce neighboring cells' spatial dependency, and more importantly it can automatically learn the cell type number directly from the data without prespecification. In this package, a partially collapsed Gibbs sampler is carefully designed for Bayesian posterior inference. BACT can be installed in Windows, Linux, and Mac OS.
 
 
 
@@ -20,97 +16,93 @@ For technical details, please refer to our paper currently accepted in *Journal 
 devtools::install_github("yinqiaoyan/BACT")
 ```
 
-## Original datasets information
+
+
+## Datasets information
+
+The data description is given in the following table.
+
+| ST Dataset  | Cell number | Gene number |                        Download links                        |
+| :---------: | :---------: | :---------: | :----------------------------------------------------------: |
+|  STARmap*   |    1,207    |    1,020    | Raw data: http://sdmbench.drai.cn/tcm/download/?file_path=/mnt/JINGD/data/file/sdmbench/db/STARmap_20180505_BY3_1k.h5ad  <br/>Cell type annotation: https://drive.google.com/drive/folders/1I1nxheWlc2RXSdiv24dex3YRaEh780my?usp=sharing |
+| MERFISH0.04 |    5,488    |     155     | http://sdmbench.drai.cn/tcm/download/?file_path=/mnt/JINGD/data/file/sdmbench/db/MERFISH_0.04.h5ad |
+| MERFISH0.09 |    5,557    |     155     | http://sdmbench.drai.cn/tcm/download/?file_path=/mnt/JINGD/data/file/sdmbench/db/MERFISH_0.09.h5ad |
+| MERFISH0.14 |    5,926    |     155     | http://sdmbench.drai.cn/tcm/download/?file_path=/mnt/JINGD/data/file/sdmbench/db/MERFISH_0.14.h5ad |
+| MERFISH0.19 |    5,803    |     155     | http://sdmbench.drai.cn/tcm/download/?file_path=/mnt/JINGD/data/file/sdmbench/db/MERFISH_0.19.h5ad |
+| MERFISH0.24 |    5,543    |     155     | http://sdmbench.drai.cn/tcm/download/?file_path=/mnt/JINGD/data/file/sdmbench/db/MERFISH_0.24.h5ad |
+|  Slide-seq  |   24,847    |   18,906    | https://singlecell.broadinstitute.org/single_cell/study/SCP354/slide-seq-study#study-download. Download the barcode file "Puck\_180430\_1.tar.gz" |
 
 
 
-|   Dataset   | Number of cells | Number of genes | Download link |
-| :---------: | :-------------: | :-------------: | :-----------: |
-|  STARmap*   |      1207       |      1020       |               |
-| MERFISH0.04 |      5488       |       155       |               |
-| MERFISH0.09 |      5557       |       155       |               |
-| MERFISH0.14 |      5926       |       155       |               |
-| MERFISH0.19 |      5803       |       155       |               |
-| MERFISH0.24 |      5543       |       155       |               |
-|  Slide-seq  |      24847      |      18906      |               |
+## Example Code
 
+The following code shows an example (Application to the mouse visual cortex STARmap* data in the manuscript) that runs the main function "BACT" in our package.
 
-
-## Usage example 1: STARmap\*
-
-Read data from .h5ad file
-
-```python
-python Read_data.py
-```
-
-
+Import the required R packages.
 
 ```R
 library(BACT)
-library(SingleCellExperiment)
 library(aricode)
+library(ggplot2)
 ```
 
+ Read the example data stored in this package. The example data includes:
 
+* coord: spatial coordinates
+* gene_data_pc: processed gene expression data (after log-normalization and PCA)
+* truth_labels: cell type annotation of cells
 
 ```R
-coord = read.csv(paste0(RootPath, "coordinates.csv"))
-geneData_raw = read.csv(paste0(RootPath, "gene_count_matrix_raw.csv"))
-truth_labels = read.csv(paste0(RootPath, "annotation_file.csv"))$Annotation
-
-spotLoc_char = geneData_raw[, 1]
-geneData_raw_noName = as.matrix(geneData_raw[, -1])
-rownames(geneData_raw_noName) = spotLoc_char
-# Dim: cells * genes =  1207 * 1020
-colnames(coord) = c("coord_x", "coord_y")
+data(example_data)
+dim(coord)
+# Dim: 1207 * 2
+dim(gene_data_pc)
+# Dim: 50 * 1207
 ```
 
-Before implementing BACT, we need to preprocess the raw data by `DataPreprocess` function
+Define an auxiliary function that is used to compute the posterior mode from the MCMC samples of cell type indicator $\mathbf{C}$.
 
 ```R
-tmpx = t(geneData_raw_noName)
-sce <- SingleCellExperiment(assays=list(counts=tmpx),
-                            colData = coord)
-## Preprocess the raw data
-# norm.type="logNorm"
-sce = DataPreprocess(sce, n.PCs=50, norm.type="logNorm", select.hvg=FALSE)
-## Get the processed data after conducting PCA
-gene_data_pc = t(reducedDim(sce, "PCA"))
+getmode <- function(v) {
+  uniqv <- unique(v)
+  res <- uniqv[which.max(tabulate(match(v, uniqv)))]
+  return(res)
+}
 ```
 
-Run BACT
+Run BACT function for model training. Total execution time is about 1.5 minutes on a MacBook Pro with Intel Core i5 CPU at 2GHz and 16GB of RAM.
 
 ```R
-# Total execution time is about 15 minutes
-# on a MacBook Pro with Intel Core i5 CPU at 2GHz and 16GB of RAM.
 res_list = BACT(gene_data_pc = gene_data_pc, coord = coord, platform = "sc",
                 num_init = 7, num_nei = 6,
                 d1=3, R1_elem=0.5,
-                a_eta=0, b_eta=1.5, IGkappa=2, IGtau=10, dpAlpha=1, 
-                a_beta=1, tau_beta=1, tau0=0.01, tau1=0.05, M0=50, 
-                numOfMCMC=6000, burnIn=3000, 
+                a_eta=0, b_eta=1.5, IGkappa=2, IGtau=10, dpAlpha=1,
+                a_beta=1, tau_beta=1, tau0=0.01, tau1=0.05, M0=50,
+                numOfMCMC=600, burnIn=300,
                 Is_beta_zero=FALSE, Is_warm_start=TRUE,
                 Is_kmeans_use_mean_sd=TRUE,
-                Is_print=TRUE, print_gap=500,
+                Is_print=TRUE, print_gap=100,
                 Is_random_seed=TRUE, random_seed=99)
 ```
 
-Show results
+Output the total execution time.
 
 ```R
-# Execution time
 res_list$exeTime
-# Posterior mode of consensus clustering C and marker-gene indicator \gamma
-clIds_mode = apply(res_list$clIds_mcmc, 2, getmode)
-# 95% credible interval for spatial interaction parameter \beta
-quantile(res_list$pottsBeta_mcmc, c(0.025, 0.975))
-# Compared with true labels
-table(clIds_mode, truth_labels)
-cat("ARI value:", ARI(clIds_mode, truth_labels))
+# Time difference of 1.473178 mins
 ```
 
-Visualization for BACT and save the figure
+Compute Posterior mode of cell type indicator $\mathbf{C}$. Compare the estimated cell type labels with the cell type annotation.
+
+```R
+clIds_mode = apply(res_list$clIds_mcmc, 2, getmode)
+
+table(clIds_mode, truth_labels)
+cat("ARI value:", ARI(clIds_mode, truth_labels))
+# ARI value: 0.6223543
+```
+
+The following codes visualize the cell typing performance of BACT, and save the figure.
 
 ```R
 tmpc = clIds_mode
@@ -121,8 +113,10 @@ for (ii in 1:length(unique(tmpc))) {
   tmpc2[tmpc == tmpc_vec[ii]] = tmpc2_vec[[ii]]
 }
 tmpc = tmpc2
-plot_color=c("#ff6466", "#ffb610", "#c599f3", "#52c084", "#7b92ce", "#d2d1d0", 
+plot_color=c("#ff6466", "#ffb610", "#c599f3", "#52c084", "#7b92ce", "#d2d1d0",
              "#6b1499", "#138320", "#3185eb", "#9d766e", "#b2c7e5", "#a8dc93")
+par(ask = FALSE)
+
 ppdata = data.frame(x = coord[,1], y = coord[,2], c = tmpc)
 pp = ggplot(data = ppdata, aes(x=x, y=y)) +
   geom_point(aes(color=factor(c)), size = 6) +
@@ -139,11 +133,11 @@ pp = ggplot(data = ppdata, aes(x=x, y=y)) +
   scale_color_manual(values=plot_color,
                      labels = paste0("C", 1:12)) +
   guides(color = guide_legend(override.aes = list(size = 12), ncol = 2))
-par(ask=FALSE)
+
 ggsave("./starmap_bact.png", pp, width = 18, height = 10, dpi = 100)
 ```
 
-Visualization for cell type annotation and save the figure
+The following codes visualize the underlying cell type annotation, and save the figure.
 
 ```R
 tmpc = truth_labels
@@ -165,151 +159,15 @@ pp = ggplot(data = ppdata, aes(x=x, y=y)) +
         legend.key.size = unit(2, 'cm')) +
   scale_color_manual(values=plot_color) +
   guides(color = guide_legend(override.aes = list(size = 12), ncol = 2))
-par(ask=FALSE)
+
 ggsave("./starmap_cell_annotation.png", pp, width = 20, height = 10, dpi = 100)
 ```
 
-## Usage example 2: MERFISH0.19
-
-
+Users can simply run the code `example("BACT")` to carry out this example.
 
 ```R
 library(BACT)
-library(SingleCellExperiment)
-library(aricode)
-```
-
-
-
-```R
-coord = read.csv(paste0(RootPath, "coordinates.csv"))
-geneData_raw = read.csv(paste0(RootPath, "gene_count_matrix_raw.csv"))
-truth_labels = read.csv(paste0(RootPath, "adata_obs.csv"))$cell_class
-
-spotLoc_char = geneData_raw[, 1]
-geneData_raw_noName = as.matrix(geneData_raw[, -1])
-rownames(geneData_raw_noName) = spotLoc_char
-# Dim: cells * genes =  5488 * 155
-colnames(coord) = c("coord_x", "coord_y")
-```
-
-Since the raw data have been normalized, we only need to take log before conducting PCA.
-
-```R
-tmpx = t(geneData_raw_noName)
-sce <- SingleCellExperiment(assays=list(counts=tmpx),
-                            colData = coord)
-## Preprocess the raw data
-# norm.type="logOnly"
-sce = DataPreprocess(sce, n.PCs=50, norm.type="logOnly", select.hvg=FALSE)
-## Get the processed data after conducting PCA
-gene_data_pc = t(reducedDim(sce, "PCA"))
-```
-
-Run BACT
-
-```R
-# Total execution time is about 30 minutes
-# on a MacBook Pro with Intel Core i5 CPU at 2GHz and 16GB of RAM.
-res_list = BACT(gene_data_pc = gene_data_pc, coord = coord, platform = "sc",
-                num_init = 8, num_nei = 6,
-                d1=3, R1_elem=0.5,
-                a_eta=0, b_eta=1.5, IGkappa=2, IGtau=10, dpAlpha=1, 
-                a_beta=1, tau_beta=1, tau0=0.01, tau1=0.05, M0=50, 
-                numOfMCMC=4000, burnIn=2000, 
-                Is_beta_zero=FALSE, Is_warm_start=TRUE,
-                Is_kmeans_use_mean_sd=TRUE,
-                Is_print=TRUE, print_gap=500,
-                Is_random_seed=TRUE, random_seed=55)
-```
-
-
-
-
-
-
-
-## Example Code
-
-The following code shows an example (Simulation I in the paper) that runs the main function "BINRES" in our package.
-
-```R
-library(BACT)
-library(aricode)
-library(ggplot2)
-# Import example data
-# (1) coord: Spatial coordinates
-# (2) gene_data_pc: processed gene expression data (after log-normalization and PCA)
-# (3) truth_labels: Cell type annotation of all cells
-data(example_data)
-# Dimension of spatial coordinates
-dim(coord)
-# Dimension of gene expression data
-dim(gene_data_pc)
-# Auxiliary functions
-getmode <- function(v) {
-  uniqv <- unique(v)
-  res <- uniqv[which.max(tabulate(match(v, uniqv)))]
-  return(res)
-}
-# --- run BACT ---
-# Total execution time is about 1.7 minutes
-# on a MacBook Pro with Intel Core i5 CPU at 2GHz and 16GB of RAM.
-res_list = BACT(gene_data_pc = gene_data_pc, coord = coord, platform = "sc",
-                num_init = 7, num_nei = 6,
-                d1=3, R1_elem=0.5,
-                a_eta=0, b_eta=1.5, IGkappa=2, IGtau=10, dpAlpha=1,
-                a_beta=1, tau_beta=1, tau0=0.01, tau1=0.05, M0=50,
-                numOfMCMC=600, burnIn=300,
-                Is_beta_zero=FALSE, Is_warm_start=TRUE,
-                Is_kmeans_use_mean_sd=TRUE,
-                Is_print=TRUE, print_gap=100,
-                Is_random_seed=TRUE, random_seed=99)
-# Execution time
-res_list$exeTime
-# Posterior mode of consensus clustering C and marker-gene indicator \gamma
-clIds_mode = apply(res_list$clIds_mcmc, 2, getmode)
-# 95% credible interval for spatial interaction parameter \beta
-quantile(res_list$pottsBeta_mcmc, c(0.025, 0.975))
-# Compared with true labels
-table(clIds_mode, truth_labels)
-cat("ARI value:", ARI(clIds_mode, truth_labels))
-# --- Visualization ---
-tmpc = clIds_mode
-tmpc2 = tmpc
-tmpc_vec = sort(unique(tmpc))
-tmpc2_vec = c(1,4,7,2,5,3,11,8,6,10,9,13)
-for (ii in 1:length(unique(tmpc))) {
-  tmpc2[tmpc == tmpc_vec[ii]] = tmpc2_vec[[ii]]
-}
-tmpc = tmpc2
-plot_color=c("#ff6466", "#ffb610", "#c599f3", "#52c084", "#7b92ce", "#d2d1d0",
-             "#6b1499", "#138320", "#3185eb", "#9d766e", "#b2c7e5", "#a8dc93")
-ppdata = data.frame(x = coord[,1], y = coord[,2], c = tmpc)
-pp = ggplot(data = ppdata, aes(x=x, y=y)) +
-  geom_point(aes(color=factor(c)), size = 6) +
-  theme(panel.background = element_blank(),
-        axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        axis.title.y=element_blank(),
-        axis.text.y=element_blank(),
-        axis.ticks.y=element_blank(),
-        legend.text = element_text(size = 35),
-        legend.title = element_blank(),
-        legend.key.size = unit(2, 'cm')) +
-  scale_color_manual(values=plot_color,
-                     labels = paste0("C", 1:12)) +
-  guides(color = guide_legend(override.aes = list(size = 12), ncol = 2))
-par(ask=FALSE)
-ggsave("./starmap_bact.png", pp, width = 18, height = 10, dpi = 100)
-```
-
-or you can simply run
-
-```R
-library(BACT)
-# Total execution time is about 1.7 minutes
+# Total execution time is about 1.5 minutes
 # on a MacBook Pro with Intel Core i5 CPU at 2GHz and 16GB of RAM.
 example("BACT")
 ```
