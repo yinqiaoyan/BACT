@@ -8,14 +8,12 @@
 #' @param gene_data_pc n.PCs*n preprocessed gene expression matrix. Obtained by normalizing ST raw count matrix, taking logarithm, and conducting PCA.
 #' @param coord Coordinates dataframe (2 columns). 1st column: first dimension coordinate. 2nd column: second dimension coordinate.
 #' @param platform Spatial sequencing platform. Used to determine neighborhood structure (ST = square, Visium = hex, sc = single-cell resolved ST).
-#' @param num_init Initial region number. Default is 5.
+#' @param num_init Initial cell type number. Default is 5.
 #' @param num_nei Number of neighbors. Required if platform is "sc". Default is 6.
-#' @param d1 Degree of freedom for the inverse Wishart prior of \eqn{\Lambda_k}. Default is 3.
-#' @param R1_elem Diagonal element of matrix R1. Default is 0.5.
 #' @param a_eta Mean of the normal prior for \eqn{\eta}. Default is 0.
 #' @param b_eta Standard deviation of the normal prior for \eqn{\eta}. Default is 1.5.
-#' @param IGkappa Shape parameter of the inverse gamma prior for \eqn{\sigma_g}. Default is 2.
-#' @param IGtau Scale parameter of the inverse gamma prior for \eqn{\sigma_g}. Default is 10.
+#' @param IGkappa Shape parameter of the inverse gamma prior for \eqn{\sigma^2}. Default is 2.
+#' @param IGtau Scale parameter of the inverse gamma prior for \eqn{\sigma^2}. Default is 10.
 #' @param dpAlpha Hyperparameter of the GEM distribution for the stick-breaking prior of \eqn{\pi_k}. That is, \eqn{\xi_i} are drawn from Be(1, dpAlpha). Default is 1.
 #' @param a_beta Mean of the normal distribution before truncation for the spatial interaction parameter \eqn{\beta}. Default is 1.
 #' @param tau_beta Standard deviation of the normal distribution before truncation for \eqn{\beta}. Default is 1.
@@ -27,7 +25,7 @@
 #' @param Is_beta_zero Logical; if TRUE, \eqn{\beta} is fixed at zero. Default is FALSE.
 #' @param Is_warm_start Logical; if TRUE, warm start steps by KMeans are used to initialize C. Default is FALSE.
 #' @param Is_kmeans_use_mean_sd Logical; if TRUE, results by KMeans are used to initialize mean and standard deviation of each cluster. Required if Is_warm_start is TRUE. Default is FALSE.
-#' @param Is_print Logical; if TRUE, iteration time information of each update step are printed. Default is TRUE.
+#' @param Is_print Logical; if TRUE, iteration information during model training are printed. Default is TRUE.
 #' @param print_gap Length of iteration interval to print the number of iterations. Default is 10.
 #' @param Is_random_seed Logical; if TRUE, a random seed is used for reproducibility. Default is TRUE.
 #' @param random_seed Random seed. Required if Is_random_seed is TRUE. Default is 30.
@@ -35,7 +33,7 @@
 #' @return BINRES returns an R list including the following information.
 #' \item{clIds_mcmc}{matrix, the posterior samples of integrative region indicators for each spot or cell. Rows: MCMC samples. Columns: n cells.}
 #' \item{eta_k_mcmc}{list, each element contains the posterior sample of \eqn{\eta_k} for all clusters in each MCMC iteration.}
-#' \item{sigma_g_mcmc}{matrix, the posterior samples of \eqn{\sigma_g} for each gene. Rows: MCMC samples. Columns: PCs.}
+#' \item{sigma_g_mcmc}{matrix, the posterior samples of \eqn{\sigma} for each gene. Rows: MCMC samples. Columns: PCs.}
 #' \item{pottsBeta_mcmc}{vector, the posterior samples of spatial interaction parameter \eqn{\beta}.}
 #' \item{dpXi_mcmc}{list, each element contains the posterior sample of \eqn{\xi_k} in each MCMC iteration.}
 #' \item{exeTime}{Total execution time of running the code.}
@@ -64,7 +62,6 @@
 #' # on a MacBook Pro with Intel Core i5 CPU at 2GHz and 16GB of RAM.
 #' res_list = BACT(gene_data_pc = gene_data_pc, coord = coord, platform = "sc",
 #'                 num_init = 7, num_nei = 6,
-#'                 d1=3, R1_elem=0.5,
 #'                 a_eta=0, b_eta=1.5, IGkappa=2, IGtau=10, dpAlpha=1,
 #'                 a_beta=1, tau_beta=1, tau0=0.01, tau1=0.05, M0=50,
 #'                 numOfMCMC=600, burnIn=300,
@@ -144,7 +141,6 @@
 #' @importFrom rBeta2009 rbeta
 BACT <- function(gene_data_pc, coord, platform=c("ST", "Visium", "sc"),
                  num_init=5, num_nei = 6,
-                 d1=3, R1_elem=0.5,
                  a_eta=0, b_eta=1.5, IGkappa=2, IGtau=10, dpAlpha=1,
                  a_beta=1, tau_beta=1, tau0=0.01, tau1=0.05, M0=50,
                  numOfMCMC=4000, burnIn=2000,

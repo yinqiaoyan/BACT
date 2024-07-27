@@ -75,7 +75,6 @@ Run BACT function for model training. Total execution time is about 1.5 minutes 
 ```R
 res_list = BACT(gene_data_pc = gene_data_pc, coord = coord, platform = "sc",
                 num_init = 7, num_nei = 6,
-                d1=3, R1_elem=0.5,
                 a_eta=0, b_eta=1.5, IGkappa=2, IGtau=10, dpAlpha=1,
                 a_beta=1, tau_beta=1, tau0=0.01, tau1=0.05, M0=50,
                 numOfMCMC=600, burnIn=300,
