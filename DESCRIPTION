@@ -1,0 +1,13 @@
+Package: BACT
+Type: Package
+Title: Bayesian Cell Typing
+Version: 1.0
+Author: Author1, Author2
+Maintainer: Author1 <author1@address>
+Description: The R package used in the manuscript "sss".
+License: GPL (>= 2)
+Encoding: UTF-8
+Imports: Rcpp (>= 1.0.8.3), RcppArmadillo, stats, rBeta2009, truncnorm, BiocSingular, SummarizedExperiment, scater, scran
+Depends: R (>= 4.0.0), mvtnorm, MCMCpack
+LinkingTo: Rcpp, RcppArmadillo
+RoxygenNote: 7.3.0
