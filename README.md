@@ -70,7 +70,36 @@ getmode <- function(v) {
 }
 ```
 
-Run BACT function for model training. Total execution time is about 1.5 minutes on a MacBook Pro with Intel Core i5 CPU at 2GHz and 16GB of RAM.
+Run BACT function for model training. 
+
+We set the **initial cell cluster number** as the number of underlying ground truth provided by Yuan et al. (2024) for the STARmap* dataset, which equals 7. We note that the initial cell cluster number only serves as initialization and is not necessarily equal to the final estimated cluster number. The **number of neighbors** is set to six and the **number of PCs** is set to 50 in all the real applications. The remaining parameters are set to their default values. The total execution time is about 1.5 minutes on a MacBook Pro with Intel Core i5 CPU at 2GHz and 16GB of RAM.
+
+The meaning of each argument in the main function **BACT** is listed below.
+
+* **gene_data_pc**: n.PCs\*n preprocessed gene expression matrix. Obtained by normalizing ST raw count matrix, taking logarithm, and conducting PCA.
+* **coord**: Coordinates dataframe (2 columns). 1st column: first dimension coordinate. 2nd column: second dimension coordinate.
+* **platform**: Spatial sequencing platform. Used to determine neighborhood structure (ST = square, Visium = hex, sc = single-cell resolved ST).
+* **num_init**: Initial cell type number. Default is 5.
+* **num_nei**: Number of neighbors. Required if platform is "sc". Default is 6.
+* **a_eta**: Mean of the normal prior for $\eta$. Default is 0.
+* **b_eta**: Standard deviation of the normal prior for $\eta$. Default is 1.5.
+* **IGkappa**: Shape parameter of the inverse gamma prior for $\sigma^2$. Default is 2.
+* **IGtau**: Scale parameter of the inverse gamma prior for $\sigma^2$. Default is 10.
+* **dpAlpha**: Hyperparameter of the GEM distribution for the stick-breaking prior of $\pi_k$. That is, $\xi_i$ are drawn from Be(1, dpAlpha). Default is 1.
+* **a_beta**: Mean of the normal distribution before truncation for the spatial interaction parameter $\beta$. Default is 1.
+* **tau_beta**: Standard deviation of the normal distribution before truncation for $\beta$. Default is 1.
+* **tau0**: Standard deviation of the normal distribution before truncation for the proposal distribution of $\xi_k^*$ when k < M0. Default is 0.01.
+* **tau1**: Standard deviation of the normal distribution before truncation for the proposal distribution of $\beta$. Default is 0.05.
+* **M0**: A relatively large fixed positive integer. Used to determine proposal distribution form of $\xi_k^*$. Default is 50.
+* **numOfMCMC**: Number of MCMC iterations. Default is 4000.
+* **burnIn**: Number of iterations in burn-in. After burnIn the posterior samples are used and saved to estimate the unknown parameters. Default is 2000.
+* **Is_beta_zero**: Logical; if TRUE, $\beta$ is fixed at zero. Default is FALSE.
+* **Is_warm_start**: Logical; if TRUE, warm start steps by KMeans are used to initialize C. Default is FALSE.
+* **Is_kmeans_use_mean_sd**: Logical; if TRUE, results by KMeans are used to initialize mean and standard deviation of each cluster. Required if Is_warm_start is TRUE. Default is FALSE.
+* **Is_print**: Logical; if TRUE, iteration information during model training are printed. Default is TRUE.
+* **print_gap**: Length of iteration interval to print the number of iterations. Default is 10.
+* **Is_random_seed**: Logical; if TRUE, a random seed is used for reproducibility. Default is TRUE.
+* **random_seed**: Random seed. Required if Is_random_seed is TRUE. Default is 30.
 
 ```R
 res_list = BACT(gene_data_pc = gene_data_pc, coord = coord, platform = "sc",
