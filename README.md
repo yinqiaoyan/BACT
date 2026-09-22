@@ -204,4 +204,4 @@ example("BACT")
 
 ## Remarks
 
-- If you have any questions regarding this package, please contact Yinqiao Yan at [yanyinqiao@ruc.edu.cn](mailto:yanyinqiao@ruc.edu.cn).
+- If you have any questions regarding this package, please contact Yinqiao Yan at [yinqiaoyan@bjut.edu.cn](mailto:yinqiaoyan@bjut.edu.cn).
